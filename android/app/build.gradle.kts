@@ -15,7 +15,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.example.germplasmx"
+    namespace = "com.plantsciencetools.germplasmx"
     compileSdk = 35
     ndkVersion = "27.0.12077973"
 
