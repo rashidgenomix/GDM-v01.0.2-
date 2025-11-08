@@ -6,7 +6,7 @@ workflows:
       flutter: stable
       java: 21
       android_signing:
-      - germplasmx
+      - germplasmx1
     scripts:
       - name: Get Flutter Dependencies
         script: |
