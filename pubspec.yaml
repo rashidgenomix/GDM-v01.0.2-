@@ -37,12 +37,19 @@ dependencies:
   share_plus: ^11.0.0
   http: ^1.4.0
   file_picker: ^10.2.0
+  flutter_launcher_icons: "^0.14.4"
 
 
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+
 
 flutter:
   uses-material-design: true
