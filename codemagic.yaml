@@ -5,7 +5,7 @@ workflows:
     environment:
       flutter: stable
       java: 21
-      android-signing:
+      android_signing:
       - germplasmx
     scripts:
       - name: Get Flutter Dependencies
