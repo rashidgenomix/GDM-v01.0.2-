@@ -9,20 +9,19 @@ workflows:
       - name: Get Flutter Dependencies
         script: |
           flutter pub get
-      - name: Build Android APK (.apk)
+
+      - name: Build Android APK
         script: |
           flutter build apk --release
-      - name: Build Android App Bundle (.aab)
+
+      - name: Build Android App Bundle
         script: |
           flutter build appbundle --release
+
     artifacts:
       - build/app/outputs/flutter-apk/app-release.apk
       - build/app/outputs/bundle/release/app-release.aab
-    android-signing:
-      keystore: ./germplasmx-release.jks
-      keystore_password: Talha@2010
-      key_alias: germplasmx
-      key_password: Talha@2010
+
     publishing:
       email:
         recipients:
