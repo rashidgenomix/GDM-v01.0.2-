@@ -104,7 +104,7 @@ class _QRScannerScreenState extends State<QRScanner> with WidgetsBindingObserver
               icon: const Icon(Icons.photo_library),
               label: const Text("Scan from Image"),
               onPressed: _handleImageUpload,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.purple[50]),
             ),
           ),
         ],

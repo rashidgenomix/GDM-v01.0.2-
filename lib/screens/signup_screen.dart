@@ -49,18 +49,10 @@ class _SignupScreenState extends State<SignupScreen> {
           SnackBar(content: Text(error)),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Signup successful! Please verify your email.')),
-        );
-
-        await Future.delayed(const Duration(milliseconds: 1000));
-
-        if (!mounted) return;
-
-        // Redirect to HomeScreen (optional) or Login
+        // ✅ Signup successful → navigate to LoginScreen
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
           (route) => false,
         );
       }
@@ -93,7 +85,6 @@ class _SignupScreenState extends State<SignupScreen> {
                   children: [
                     SizedBox(height: size.height * 0.05),
 
-                    // Email field
                     TextField(
                       controller: _emailController,
                       decoration: const InputDecoration(labelText: "Email"),
@@ -101,7 +92,6 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Password field
                     TextField(
                       controller: _passwordController,
                       decoration: const InputDecoration(labelText: "Password"),
@@ -109,7 +99,6 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Confirm Password field
                     TextField(
                       controller: _confirmPasswordController,
                       decoration: const InputDecoration(labelText: "Confirm Password"),
@@ -117,7 +106,6 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                     const SizedBox(height: 24),
 
-                    // Signup button or loader
                     _isLoading
                         ? const CircularProgressIndicator()
                         : SizedBox(
@@ -135,7 +123,6 @@ class _SignupScreenState extends State<SignupScreen> {
 
                     const SizedBox(height: 20),
 
-                    // Back to login
                     TextButton(
                       onPressed: () => Navigator.pushReplacement(
                         context,

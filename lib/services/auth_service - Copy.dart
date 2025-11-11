@@ -21,22 +21,18 @@ class AuthService {
     }
   }
 
-// Sign in
-Future<String?> signIn(String email, String password) async {
-  try {
-    print("auth-services");
-
-    // Attempt login
-    await _auth.signInWithEmailAndPassword(email: email, password: password);
-
-    print("Login successful");
-    return null; // Success → return null
-  } on FirebaseAuthException catch (e) {
-    print("Login failed: ${e.message}");
-    return e.message; // Return Firebase error message
+  // Sign in
+  Future<String?> signIn(String email, String password) async {
+    try {
+      print("auth-services");
+      final error = await _auth.signInWithEmailAndPassword(email: email, password: password);
+      print("auth-error");
+      print(error);
+      return error.toString();
+    } on FirebaseAuthException catch (e) {
+      return e.message;
+    }
   }
-}
-
 
   // Sign out
   Future<void> signOut() async {

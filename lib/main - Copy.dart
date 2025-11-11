@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:germplasmx/screens/home_screen.dart';
 import 'package:germplasmx/screens/login_screen.dart';
 import 'package:germplasmx/screens/signup_screen.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'auth/auth_provider.dart';
+import 'screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,50 +25,43 @@ class GermplasmApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ScreenUtilInit(
-      designSize: const Size(390, 844), // iPhone 14 base, adjust if needed
-      minTextAdapt: true,
-      splitScreenMode: true,
-      builder: (_, child) {
-        return MaterialApp(
-          title: 'Germplasm Data Manager',
-          debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            primarySwatch: Colors.green,
-            scaffoldBackgroundColor: Colors.white,
-            useMaterial3: true,
-          ),
-          home: GlobalBackHandler(child: const HomeScreen()),
-        );
-      },
+    return MaterialApp(
+      title: 'Germplasm Data Manager',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        primarySwatch: Colors.green,
+        scaffoldBackgroundColor: Colors.white,
+        useMaterial3: true,
+      ),
+      home: const HomeScreen(), // Home is always shown first
     );
   }
 }
 
-class GlobalBackHandler extends StatefulWidget {
+/// Handles global back button behavior:
+/// - Any screen except Home → navigates to Home
+/// - Home → double-tap to exit
+class BackButtonHandler extends StatefulWidget {
   final Widget child;
-  const GlobalBackHandler({super.key, required this.child});
+  const BackButtonHandler({super.key, required this.child});
 
   @override
-  State<GlobalBackHandler> createState() => _GlobalBackHandlerState();
+  State<BackButtonHandler> createState() => _BackButtonHandlerState();
 }
 
-class _GlobalBackHandlerState extends State<GlobalBackHandler> {
+class _BackButtonHandlerState extends State<BackButtonHandler> {
   DateTime? _lastBackPressed;
 
   Future<bool> _onWillPop() async {
     final navigator = Navigator.of(context);
 
+    // If current route is not HomeScreen, go back to HomeScreen
     if (navigator.canPop()) {
-      // Any subpage → go back to home
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-        (route) => false,
-      );
-      return false;
+      // Pop everything until HomeScreen
+      navigator.popUntil((route) => route.isFirst);
+      return false; // prevent default pop
     } else {
-      // Home → confirm exit
+      // Already at HomeScreen → double-tap exit
       final now = DateTime.now();
       if (_lastBackPressed == null ||
           now.difference(_lastBackPressed!) > const Duration(seconds: 2)) {
@@ -79,7 +71,7 @@ class _GlobalBackHandlerState extends State<GlobalBackHandler> {
         );
         return false;
       }
-      return true;
+      return true; // exit app
     }
   }
 

@@ -35,16 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
           SnackBar(content: Text(error)),
         );
       } else {
-        // success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login successful!')),
-        );
-
-        // brief delay to let snackbar show
-        await Future.delayed(const Duration(milliseconds: 800));
-        if (!mounted) return;
-
-        // navigate and clear previous routes
+        // ✅ success → navigate to home and clear previous routes
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const HomeScreen()),
