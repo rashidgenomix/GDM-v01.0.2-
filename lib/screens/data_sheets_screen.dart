@@ -13,7 +13,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 
-
 class DataSheetsScreen extends StatefulWidget {
   @override
   _DataSheetsScreenState createState() => _DataSheetsScreenState();
@@ -24,25 +23,21 @@ class _DataSheetsScreenState extends State<DataSheetsScreen> {
   final _auth = FirebaseAuth.instance;
 
   List<String> experiments = [];
-  String?  selExp;
+  String? selExp;
 
   List<String> accessions = [];
-  String?  selAcc;
+  String? selAcc;
 
   List<String> dates = [];
-  String?  selDate;
+  String? selDate;
 
-  List<Map<String,dynamic>> datasheet = [];
+  List<Map<String, dynamic>> datasheet = [];
   bool loading = true, fetching = false;
 
   String get uid => _auth.currentUser!.uid;
-  String? get email=> _auth.currentUser!.email;
-  //String? get email=> "asimmehmood247@gmail.com";
+  String? get email => _auth.currentUser!.email;
 
-  String csvfile="";
-
-
-
+  String csvfile = "";
 
   @override
   void initState() {
@@ -52,7 +47,8 @@ class _DataSheetsScreenState extends State<DataSheetsScreen> {
 
   Future<void> _loadExperiments() async {
     final snap = await _fire
-        .collection('users').doc(uid)
+        .collection('users')
+        .doc(uid)
         .collection('phenotyping_data')
         .get();
 
@@ -63,125 +59,42 @@ class _DataSheetsScreenState extends State<DataSheetsScreen> {
   Future<void> _loadAccAndDates() async {
     if (selExp == null) return;
     final doc = await _fire
-        .collection('users').doc(uid)
+        .collection('users')
+        .doc(uid)
         .collection('phenotyping_data')
         .doc(selExp)
         .get();
 
     final data = doc.data() ?? {};
     accessions = List<String>.from(data['accessions'] ?? []);
-    dates      = List<String>.from(data['dates']      ?? []);
-    // clear any old selections
+    dates = List<String>.from(data['dates'] ?? []);
     selAcc = selDate = null;
     datasheet.clear();
-
     setState(() {});
   }
 
   Future<void> _loadSheetRows() async {
-    if (selExp==null || selAcc==null || selDate==null) return;
+    if (selExp == null || selAcc == null || selDate == null) return;
     setState(() => fetching = true);
 
     final snap = await _fire
-        .collection('users').doc(uid)
+        .collection('users')
+        .doc(uid)
         .collection('phenotyping_data')
         .doc(selExp)
         .collection(selAcc!)
         .where('Date', isEqualTo: selDate)
         .get();
 
-    datasheet = snap.docs.map((d) {
-      return {'id': d.id, ...d.data()};
-    }).toList();
+    datasheet = snap.docs
+        .map((d) => {'id': d.id, ...d.data()})
+        .toList();
 
     setState(() => fetching = false);
   }
 
-  Future<File> _makeCsvxx() async {
-    // 1. Request Storage Permissions (for older Android versions especially)
-    var status = await Permission.storage.status;
-    if (!status.isGranted) {
-      status = await Permission.storage.request();
-      if (!status.isGranted) {
-        throw Exception('Storage permission not granted. Cannot save file.');
-      }
-    }
-
-    // Convert datasheet to CSV
-    final headers = datasheet.first.keys.toList();
-    final rows = datasheet
-        .map((r) => headers.map((h) => r[h]?.toString() ?? '').toList())
-        .toList();
-    final csvContent = const ListToCsvConverter().convert([headers, ...rows]);
-    // csvfile = csvContent; // This line seems to be assigning to a global/class variable. Keep if needed.
-
-    // Convert the CSV string to bytes (Uint8List)
-    final Uint8List csvBytes = Uint8List.fromList(csvContent.codeUnits);
-
-    // 2. Ask user to pick a save location and provide the bytes directly
-    final String? outputPath = await FilePicker.platform.saveFile(
-      dialogTitle: 'Save CSV File',
-      fileName: 'export_${selExp}_$selAcc\_$selDate.csv',
-      type: FileType.custom,
-      allowedExtensions: ['csv'],
-      bytes: csvBytes, // <--- THIS IS THE CRUCIAL CHANGE
-    );
-
-    print("outputpath");
-    print(outputPath);
-
-    if (outputPath == null) {
-      throw Exception('User canceled file save dialog');
-    }
-
-    // FilePicker.platform.saveFile() with bytes already saves the file.
-    // We just need to return a File object representing the saved file.
-    final file = File(outputPath);
-
-    // You no longer need `await file.writeAsString(csv);` here
-    // because `FilePicker` handles the writing when `bytes` are provided.
-
-    print('CSV file saved successfully to: $outputPath');
-    return file;
-  }
-
-
-  Future<File> _makeCsvlast() async {
-    // Convert datasheet to CSV
-    final headers = datasheet.first.keys.toList();
-    final rows = datasheet
-        .map((r) => headers.map((h) => r[h]?.toString() ?? '').toList())
-        .toList();
-    final csv = const ListToCsvConverter().convert([headers, ...rows]);
-    csvfile = csv;
-
-    // Request storage permission
-    final hasStoragePermission = await Permission.storage.request().isGranted;
-
-    // For Android 11+ also check MANAGE_EXTERNAL_STORAGE
-    final hasManageStorage = await Permission.manageExternalStorage.isGranted;
-
-    if (!hasStoragePermission && !hasManageStorage) {
-      throw Exception('Storage permission not granted');
-    }
-
-
-    final directory = await getExternalStorageDirectory();
-    final file = File('${directory!.path}/datasheet_export_${selExp}_$selAcc\_$selDate.csv');
-    await file.writeAsString(csv);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Saved to: ${file.path}')),
-    );
-
-    return file;
-  }
-
-
-  // Add these methods to your existing _DataSheetsScreenState class:
-
   Future<File?> _makeCsv() async {
     try {
-      // Your existing CSV generation code
       final headers = datasheet.first.keys.toList();
       final rows = datasheet
           .map((r) => headers.map((h) => r[h]?.toString() ?? '').toList())
@@ -189,9 +102,7 @@ class _DataSheetsScreenState extends State<DataSheetsScreen> {
       final csv = const ListToCsvConverter().convert([headers, ...rows]);
       csvfile = csv;
 
-      // Show save options
       final String? saveOption = await _showSaveOptionsDialog();
-
       if (saveOption == null) return null;
 
       switch (saveOption) {
@@ -201,7 +112,6 @@ class _DataSheetsScreenState extends State<DataSheetsScreen> {
           return null;
       }
     } catch (e) {
-
       return null;
     }
   }
@@ -230,19 +140,12 @@ class _DataSheetsScreenState extends State<DataSheetsScreen> {
     );
   }
 
-
-
-
-
   Future<File?> _saveWithFilePicker(String csv) async {
     final safeExp = selExp?.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_') ?? 'unknown';
     final safeAcc = selAcc?.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_') ?? 'unknown';
     final safeDate = selDate?.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_') ?? 'unknown';
 
     final fileName = 'datasheet_${safeExp}_${safeAcc}_${safeDate}.csv';
-
-
-    // Convert string to bytes
     final bytes = Uint8List.fromList(csv.codeUnits);
 
     String? outputPath = await FilePicker.platform.saveFile(
@@ -250,10 +153,9 @@ class _DataSheetsScreenState extends State<DataSheetsScreen> {
       fileName: fileName,
       type: FileType.custom,
       allowedExtensions: ['csv'],
-      bytes: bytes, // Add the bytes parameter
+      bytes: bytes,
     );
- print("file-path");
- print(outputPath);
+
     if (outputPath == null) return null;
 
     final filePath = outputPath.endsWith('.csv') ? outputPath : '$outputPath.csv';
@@ -265,100 +167,13 @@ class _DataSheetsScreenState extends State<DataSheetsScreen> {
     return file;
   }
 
-  Future<File?> _saveWithFilePickerxxx(String csv) async {
-    final fileName = 'datasheet_${selExp}_${selAcc}_${selDate}.csv';
-
-    String? outputPath = await FilePicker.platform.saveFile(
-      dialogTitle: 'Save CSV File',
-      fileName: fileName,
-      type: FileType.custom,
-      allowedExtensions: ['csv'],
-    );
-
-    if (outputPath == null) return null;
-
-    final filePath = outputPath.endsWith('.csv') ? outputPath : '$outputPath.csv';
-    final file = File(filePath);
-    await file.writeAsString(csv);
-    return file;
-  }
-
-  Future<File?> _saveToDownloads(String csv) async {
-    try {
-      final directory = await getExternalStorageDirectory();
-      final downloadsPath = '${directory!.path}/Download';
-      final downloadsDir = Directory(downloadsPath);
-      if (!await downloadsDir.exists()) {
-        await downloadsDir.create(recursive: true);
-      }
-
-      final fileName = 'datasheet_${selExp}_${selAcc}_${selDate}.csv';
-      final file = File('${downloadsDir.path}/$fileName');
-      await file.writeAsString(csv);
-      return file;
-    } catch (e) {
-      print(e.toString());
-      // Fallback to file picker
-      return await _saveWithFilePicker(csv);
-    }
-  }
-
-  Future<File?> _saveToDocuments(String csv) async {
-    final directory = await getApplicationDocumentsDirectory();
-    final fileName = 'datasheet_${selExp}_${selAcc}_${selDate}.csv';
-    final file = File('${directory.path}/$fileName');
-    await file.writeAsString(csv);
-    return file;
-  }
-
-
-
   Future<void> _exportCsv() async {
-
-
     if (datasheet.isEmpty) return;
-    final file = await _makeCsv();
-
-/*
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('CSV exported to ${file.path}')),
-    );
-*/
-
+    await _makeCsv();
   }
-
-
-  Future<void> _emailCsvddd() async {
-    if (datasheet.isEmpty) return;
-    final file = await _makeCsv();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('CSV sent to ${email}')),
-    );
-
-
-  }
-
-
-  String convertToCsv(List<Map<String, dynamic>> data) {
-    List<List<dynamic>> rows = [];
-
-    // Add headers
-    rows.add(data.first.keys.toList());
-
-    // Add data rows
-    for (var item in data) {
-      rows.add(item.values.toList());
-    }
-
-    return const ListToCsvConverter().convert(rows);
-  }
-
-
 
   Future<void> _emailCsv() async {
-   // final file = await _makeCsv();
-    final url = Uri.parse('https://ddsdp.uaar.edu.pk/PGB/receive_csv.php'); // Replace with your PHP endpoint
+    final url = Uri.parse('https://ddsdp.uaar.edu.pk/PGB/receive_csv.php');
 
     try {
       final response = await http.post(
@@ -371,33 +186,29 @@ class _DataSheetsScreenState extends State<DataSheetsScreen> {
       );
 
       if (response.statusCode == 200) {
-        print('✅ CSV sent successfully');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('CSV sent to ${email}')),
         );
       } else {
-        print('❌ Failed to send CSV: ${response.statusCode}');
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to send ${email}')),
         );
       }
-
-
-        ();
-
-
     } catch (e) {
-      print('⚠️ Error sending CSV: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to send $e')),
       );
-
     }
   }
 
-
-
+  String convertToCsv(List<Map<String, dynamic>> data) {
+    List<List<dynamic>> rows = [];
+    rows.add(data.first.keys.toList());
+    for (var item in data) {
+      rows.add(item.values.toList());
+    }
+    return const ListToCsvConverter().convert(rows);
+  }
 
   @override
   Widget build(BuildContext ctx) {
@@ -411,7 +222,7 @@ class _DataSheetsScreenState extends State<DataSheetsScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // 1) pick experiment
+            // Experiment Dropdown
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(labelText: 'Experiment'),
               items: experiments
@@ -425,7 +236,7 @@ class _DataSheetsScreenState extends State<DataSheetsScreen> {
             ),
             const SizedBox(height: 16),
 
-            // 2) pick accession
+            // Accession Dropdown
             if (accessions.isNotEmpty)
               DropdownButtonFormField<String>(
                 decoration: const InputDecoration(labelText: 'Accession'),
@@ -441,7 +252,7 @@ class _DataSheetsScreenState extends State<DataSheetsScreen> {
               ),
             if (accessions.isNotEmpty) const SizedBox(height: 16),
 
-            // 3) pick date
+            // Date Dropdown
             if (dates.isNotEmpty)
               DropdownButtonFormField<String>(
                 decoration: const InputDecoration(labelText: 'Date'),
@@ -456,88 +267,66 @@ class _DataSheetsScreenState extends State<DataSheetsScreen> {
               ),
             if (dates.isNotEmpty) const SizedBox(height: 16),
 
-            // spinner while loading rows
             if (fetching)
               const Padding(
                 padding: EdgeInsets.all(8),
                 child: CircularProgressIndicator(),
               ),
 
-            // table preview + export
-            if (!fetching && datasheet.isNotEmpty) ...[
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.vertical,
-                    child: DataTable(
-                      columns: datasheet.first.keys
-                          .map((k) => DataColumn(label: Text(k)))
-                          .toList(),
-                      rows: datasheet
-                          .map((row) => DataRow(
-                        cells: row.values
-                            .map((v) => DataCell(Text(v.toString())))
-                            .toList(),
-                      ))
-                          .toList(),
+            // CHANGED: Table + buttons layout
+            if (!fetching && datasheet.isNotEmpty)
+              Flexible(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.vertical,
+                          child: DataTable(
+                            columns: datasheet.first.keys
+                                .map((k) => DataColumn(label: Text(k)))
+                                .toList(),
+                            rows: datasheet
+                                .map((row) => DataRow(
+                              cells: row.values
+                                  .map((v) => DataCell(Text(v.toString())))
+                                  .toList(),
+                            ))
+                                .toList(),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                icon: const Icon(Icons.download),
+                                label: const Text('Export CSV'),
+                                onPressed: _exportCsv,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                icon: const Icon(Icons.email),
+                                label: const Text('Email CSV'),
+                                onPressed: _emailCsv,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-            ],
 
-            // Buttons section - Made responsive
-            if (!fetching && datasheet.isNotEmpty)
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  // For small screens, use column layout for buttons
-                  if (constraints.maxWidth < 600) {
-                    return Column(
-                      children: [
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            icon: const Icon(Icons.download),
-                            label: const Text('Export CSV'),
-                            onPressed: _exportCsv,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            icon: const Icon(Icons.email),
-                            label: const Text('Email CSV'),
-                            onPressed: _emailCsv,
-                          ),
-                        ),
-                      ],
-                    );
-                  } else {
-                    // For larger screens, use row layout
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.download),
-                          label: const Text('Export CSV'),
-                          onPressed: _exportCsv,
-                        ),
-                        const SizedBox(width: 16),
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.email),
-                          label: const Text('Email CSV'),
-                          onPressed: _emailCsv,
-                        ),
-                      ],
-                    );
-                  }
-                },
-              ),
-
-            // No data message
             if (!fetching && selDate != null && datasheet.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(8),
@@ -547,11 +336,5 @@ class _DataSheetsScreenState extends State<DataSheetsScreen> {
         ),
       ),
     );
-
-
   }
 }
-
-
-
-

@@ -16,147 +16,124 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final AuthService _authService = AuthService();
   String? _error;
+  bool _isLoading = false;
 
+  Future<void> _login() async {
+    setState(() => _isLoading = true);
 
-
-
-
-  void _login() async {
-    print("login-click");
-
-
-    final error = await _authService.signIn(
-      _emailController.text.trim(),
-      _passwordController.text.trim(),
-    );
-
-
-print("error-check");
-print(error);
- if(error!.length>0){
-   print("login-error");
-   print(error);
-   ScaffoldMessenger.of(context).showSnackBar(
-     SnackBar(content: Text('${error}')),
-   );
- }else{
-   ScaffoldMessenger.of(context).showSnackBar(
-     SnackBar(content: Text('Login Successfully')),
-   );
-
-   if (!mounted) return;
-
-   Navigator.pushAndRemoveUntil(
-     context,
-     MaterialPageRoute(builder: (_) => HomeScreen()),
-         (route) => false, // removes all previous routes
-   );
-
-
- }
-
-/*
-    if (error != null) {
-      setState(() => _error = error);
-    } else {
-      print("inside-else");
-      if (!mounted) return;
-      //Navigator.pop(context, true); // ✅ Return to Home after signup
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) =>  HomeScreen()),
-      );
-    }
-
-    */
-  }
-
-
-
-  Future<void> _loginxcv() async {
-      String message = '';
-      if (true) {
-        try {
-          await FirebaseAuth.instance.signInWithEmailAndPassword(
-            email: _emailController.text.trim(),
-            password: _passwordController.text.trim(),
-          );
-          Future.delayed(const Duration(seconds: 3), () {
-            print('success');
-            Navigator.of(context, rootNavigator: true).push(
-              MaterialPageRoute(
-                builder: (_) => HomeScreen(),
-              ),
-            );
-          });
-        } on FirebaseAuthException catch (e) {
-          if (e.code == 'INVALID_LOGIN_CREDENTIALS') {
-            message = 'Invalid login credentials.';
-          } else {
-            message = e.code;
-          }
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${message}')),
-          );
-        }
-      }
-
-
-  }
-
-
-
-
-  Future<void> _loginxxxxx() async {
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+      final error = await _authService.signIn(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
       );
-     // if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) =>  HomeScreen()),
-      );
+
+      if (!mounted) return;
+
+      if (error != null && error.isNotEmpty) {
+        // show failure message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error)),
+        );
+      } else {
+        // success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Login successful!')),
+        );
+
+        // brief delay to let snackbar show
+        await Future.delayed(const Duration(milliseconds: 800));
+        if (!mounted) return;
+
+        // navigate and clear previous routes
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (route) => false,
+        );
+      }
     } catch (e) {
-      setState(() => _error = "Login failed. Check credentials.$e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Login failed: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
     return Scaffold(
       appBar: AppBar(title: const Text("Login")),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: "Email"),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: size.height - kToolbarHeight - 40,
             ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(labelText: "Password"),
-              obscureText: true,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(onPressed: _login, child: const Text("Login")),
-            if (_error != null) ...[
-              const SizedBox(height: 10),
-              Text(_error!, style: const TextStyle(color: Colors.red)),
-            ],
-            TextButton(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SignupScreen()),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(height: size.height * 0.05),
+
+                    // Email field
+                    TextField(
+                      controller: _emailController,
+                      decoration: const InputDecoration(labelText: "Email"),
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Password field
+                    TextField(
+                      controller: _passwordController,
+                      decoration: const InputDecoration(labelText: "Password"),
+                      obscureText: true,
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Login button or loader
+                    _isLoading
+                        ? const CircularProgressIndicator()
+                        : SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _login,
+                              child: const Text("Login"),
+                            ),
+                          ),
+
+                    if (_error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(_error!,
+                          style: const TextStyle(color: Colors.red)),
+                    ],
+
+                    const SizedBox(height: 20),
+
+                    // Signup link
+                    TextButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const SignupScreen()),
+                      ),
+                      child: const Text("Don't have an account? Sign up"),
+                    ),
+
+                    // Prevent overlap with nav bar / bottom
+                    SizedBox(
+                        height:
+                            MediaQuery.of(context).padding.bottom + 20),
+                  ],
+                ),
               ),
-              child: const Text("Don't have an account? Sign up"),
             ),
-          ],
+          ),
         ),
       ),
     );
