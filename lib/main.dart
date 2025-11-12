@@ -27,25 +27,30 @@ class GermplasmApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ScreenUtilInit(
-      designSize: const Size(390, 844), // iPhone 14 base, adjust if needed
+      designSize: const Size(390, 844), // ✅ Responsive baseline
       minTextAdapt: true,
       splitScreenMode: true,
-      builder: (_, child) {
-        return MaterialApp(
-          title: 'Germplasm Data Manager',
-          debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            primarySwatch: Colors.green,
-            scaffoldBackgroundColor: Colors.white,
-            useMaterial3: true,
+      builder: (context, child) {
+        // ✅ CHANGE START — wrap entire MaterialApp with GlobalBackHandler
+        return GlobalBackHandler(
+          child: MaterialApp(
+            title: 'Germplasm Data Manager',
+            debugShowCheckedModeBanner: false,
+            theme: ThemeData(
+              primarySwatch: Colors.green,
+              scaffoldBackgroundColor: Colors.white,
+              useMaterial3: true,
+            ),
+            home: const HomeScreen(), // ✅ Home still default
           ),
-          home: GlobalBackHandler(child: const HomeScreen()),
         );
+        // ✅ CHANGE END
       },
     );
   }
 }
 
+/// ✅ CHANGE START — Global handler now applies to *all* app screens
 class GlobalBackHandler extends StatefulWidget {
   final Widget child;
   const GlobalBackHandler({super.key, required this.child});
@@ -59,9 +64,10 @@ class _GlobalBackHandlerState extends State<GlobalBackHandler> {
 
   Future<bool> _onWillPop() async {
     final navigator = Navigator.of(context);
+    final canPop = navigator.canPop();
 
-    if (navigator.canPop()) {
-      // Any subpage → go back to home
+    if (canPop) {
+      // If not on home → go to HomeScreen instead of exiting
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -69,7 +75,7 @@ class _GlobalBackHandlerState extends State<GlobalBackHandler> {
       );
       return false;
     } else {
-      // Home → confirm exit
+      // If on home → require double-tap to exit
       final now = DateTime.now();
       if (_lastBackPressed == null ||
           now.difference(_lastBackPressed!) > const Duration(seconds: 2)) {
@@ -79,7 +85,7 @@ class _GlobalBackHandlerState extends State<GlobalBackHandler> {
         );
         return false;
       }
-      return true;
+      return true; // Exit the app
     }
   }
 
@@ -91,3 +97,4 @@ class _GlobalBackHandlerState extends State<GlobalBackHandler> {
     );
   }
 }
+/// ✅ CHANGE END
