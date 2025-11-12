@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:file_picker/file_picker.dart';
 
 class PhenotypingScreen extends StatefulWidget {
   final String? qrAccession;
@@ -20,7 +23,6 @@ class _PhenotypingScreenState extends State<PhenotypingScreen> {
   bool showGrid = false;
   bool isLoading = true;
 
-
   List<Map<String, dynamic>> datasheetRows = [];
   List<String> germplasmList = [];
   List<String> experimentList = [];
@@ -35,7 +37,67 @@ class _PhenotypingScreenState extends State<PhenotypingScreen> {
     _fetchExperiments();
   }
 
+  // ----------------------------
+  // Minimal changes: Save CSV
+  // ----------------------------
+  Future<void> _exportCSV() async {
+    if (datasheetRows.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("No data to export.")));
+      return;
+    }
 
+    final headers = [
+      'Rep',
+      'Trt',
+      'Obs',
+      'Accession',
+      'Experiment',
+      ...traits
+    ];
+
+    final rows = datasheetRows.map((row) {
+      return headers.map((h) {
+        final val = (row[h] ?? '').toString();
+        return '"${val.replaceAll('"', '""')}"';
+      }).join(',');
+    }).join('\n');
+
+    final csvContent = headers.join(',') + '\n' + rows;
+
+    try {
+      final Uint8List bytes = Uint8List.fromList(utf8.encode(csvContent));
+
+      final String fileName = 'phenotyping_${selectedExperiment ?? "data"}_${selectedAccession ?? "all"}.csv';
+
+      final String? outputPath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save CSV File',
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        bytes: bytes,
+      );
+
+      if (outputPath == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Save cancelled")));
+        return;
+      }
+
+      final path = outputPath.endsWith('.csv') ? outputPath : '$outputPath.csv';
+      final file = File(path);
+      await file.writeAsBytes(bytes, flush: true);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("File saved at $path")));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to save CSV: $e")));
+    }
+  }
+  // ----------------------------
+  // End Save CSV
+  // ----------------------------
 
   Future<void> handleQRScan(String qrCode) async {
     final doc = await FirebaseFirestore.instance
@@ -63,10 +125,8 @@ class _PhenotypingScreenState extends State<PhenotypingScreen> {
   Future<void> _fetchGermplasm() async {
     try {
       if (widget.qrAccession == null) {
-        print('⚠️ QR accession is null');
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text(" QR accession is null"))
-        );
+            const SnackBar(content: Text(" QR accession is null")));
         return;
       }
 
@@ -79,43 +139,17 @@ class _PhenotypingScreenState extends State<PhenotypingScreen> {
 
       if (doc.exists) {
         final accession = doc['Accession Number']?.toString();
-
         if (accession != null && accession.isNotEmpty) {
           setState(() {
-            germplasmList = [accession]; // Only one item in dropdown
-            selectedAccession = accession; // Auto-select it
+            germplasmList = [accession];
+            selectedAccession = accession;
             isLoading = false;
           });
-        } else {
-          print('⚠️ Accession Number is missing or empty');
         }
-      } else {
-        print('❌ No document found for QR: ${widget.qrAccession}');
       }
     } catch (e) {
       print('❌ Error fetching germplasm: $e');
     }
-  }
-
-  Future<void> _fetchGermplasmxxx() async {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('germplasm_entries')
-        .get();
-    print("qr-value");
-    print(widget.qrAccession);
-
-    setState(() {
-      germplasmList = snapshot.docs.map((doc) => doc['Accession Number'] as String).toList();
-
-      print("germlist");
-      print(germplasmList);
-      if (widget.qrAccession != null) {
-     //   selectedAccession = widget.qrAccession;
-      }
-      isLoading = false;
-    });
   }
 
   Future<void> _fetchExperiments() async {
@@ -139,41 +173,24 @@ class _PhenotypingScreenState extends State<PhenotypingScreen> {
         .doc(selectedExperiment)
         .get();
 
-
-    print(expDoc);
-    print("expDoc");
-    print(expDoc['layout_type']);
-    print(expDoc['treatments']);
-    print(expDoc['observations']);
-    print(expDoc['replications']);
-   // final layout = expDoc['layout'];
-   // print("layout");
-    //print(layout);
-
     final layout = {
       'replications': expDoc['replications'],
       'treatments': expDoc['treatments'],
       'observations': expDoc['observations'],
     };
 
-
-
     traits = List<String>.from(expDoc['traits'] ?? []);
-
     datasheetRows = [];
-
-
-
 
     for (int rep = 1; rep <= (layout['replications'] ?? 0); rep++) {
       for (int trt = 1; trt <= (layout['treatments'] ?? 0); trt++) {
-        for (int obs = 1; obs <= (layout['observations']?? 0); obs++) {
+        for (int obs = 1; obs <= (layout['observations'] ?? 0); obs++) {
           final row = {
             'Rep': rep,
             'Trt': trt,
             'Obs': obs,
             'Accession': selectedAccession,
-            'Experiment':selectedExperiment,
+            'Experiment': selectedExperiment,
             for (var trait in traits) trait: '',
           };
           datasheetRows.add(row);
@@ -188,7 +205,8 @@ class _PhenotypingScreenState extends State<PhenotypingScreen> {
 
   Future<void> _saveData() async {
     final root = FirebaseFirestore.instance
-        .collection('users').doc(uid)
+        .collection('users')
+        .doc(uid)
         .collection('phenotyping_data')
         .doc(selectedExperiment);
 
@@ -208,75 +226,52 @@ class _PhenotypingScreenState extends State<PhenotypingScreen> {
       });
     }
 
-    // update the parent doc with an array of seen accessions & dates
     batch.set(root, {
       'accessions': FieldValue.arrayUnion([selectedAccession]),
-      'dates':      FieldValue.arrayUnion([DateFormat('yyyy-MM-dd').format(selectedDate)]),
+      'dates': FieldValue.arrayUnion([DateFormat('yyyy-MM-dd').format(selectedDate)]),
     }, SetOptions(merge: true));
 
     await batch.commit();
-    ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Phenotyping data saved."))
-    );
-  }
-
-  Future<void> _saveDataxxx() async {
-    final ref = FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .collection('phenotyping_data')
-        .doc(selectedExperiment)
-        .collection(selectedAccession!);
-    final batch = FirebaseFirestore.instance.batch();
-
-    for (var row in datasheetRows) {
-      final id = "${row['Rep']}_${row['Trt']}_${row['Obs']}";
-      batch.set(ref.doc(id), {
-        'Experiment': selectedExperiment,
-        'Accession': row['Accession'],
-        'Date': DateFormat('yyyy-MM-dd').format(selectedDate),
-        'Rep': row['Rep'],
-        'Trt': row['Trt'],
-        'Obs': row['Obs'],
-        for (var trait in traits) trait: row[trait],
-      });
-    }
-
-    await batch.commit();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Phenotyping data saved successfully.")),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text("Phenotyping data saved.")));
   }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: Scaffold(
-        appBar: AppBar(title: const Text("Phenotyping")),
+        appBar: AppBar(
+          title: const Text("Phenotyping"),
+          actions: [
+            if (showGrid)
+              IconButton(
+                icon: const Icon(Icons.download),
+                onPressed: _exportCSV, // <-- new download button
+              ),
+          ],
+        ),
         body: Padding(
           padding: const EdgeInsets.all(16),
           child: ListView(
             children: [
               isLoading
-                  ? Column(
-                    children: [
-                      CircularProgressIndicator(),
-                    ],
-                  )
-              :DropdownButtonFormField<String>(
-                value: selectedAccession,
-                decoration: const InputDecoration(labelText: 'Select Accession'),
-                items: germplasmList.map((e) {
-                  return DropdownMenuItem(value: e, child: Text(e));
-                }).toList(),
-                onChanged: (val) {
-                  setState(() => selectedAccession = val);
-                },
-              ),
+                  ? const Center(child: CircularProgressIndicator())
+                  : DropdownButtonFormField<String>(
+                      value: selectedAccession,
+                      decoration:
+                          const InputDecoration(labelText: 'Select Accession'),
+                      items: germplasmList.map((e) {
+                        return DropdownMenuItem(value: e, child: Text(e));
+                      }).toList(),
+                      onChanged: (val) {
+                        setState(() => selectedAccession = val);
+                      },
+                    ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
                 value: selectedExperiment,
-                decoration: const InputDecoration(labelText: 'Select Experiment'),
+                decoration:
+                    const InputDecoration(labelText: 'Select Experiment'),
                 items: experimentList.map((e) {
                   return DropdownMenuItem(value: e, child: Text(e));
                 }).toList(),
@@ -328,7 +323,8 @@ class _PhenotypingScreenState extends State<PhenotypingScreen> {
                             TextFormField(
                               initialValue: row[t],
                               onChanged: (val) => row[t] = val,
-                              decoration: const InputDecoration(border: InputBorder.none),
+                              decoration: const InputDecoration(
+                                  border: InputBorder.none),
                             ),
                           );
                         }),

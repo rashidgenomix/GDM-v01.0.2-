@@ -82,7 +82,6 @@ class _ExperimentScreenState extends State<ExperimentScreen> {
       'traits': _traits,
     });
 
-
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Experiment saved successfully')),
     );
@@ -98,20 +97,42 @@ class _ExperimentScreenState extends State<ExperimentScreen> {
     _loadExperiments();
   }
 
+  // ----------------- Download Template -----------------
   Future<void> _downloadTemplate() async {
-    const header = 'Experiment ID,Layout Type,Replications,Treatments,Observations,Trait1,Trait2,Trait3\n';
-    final dir = Directory('/storage/emulated/0/Download');
-    final file = File('${dir.path}/experiment_template.csv');
-    await file.writeAsString(header);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Template downloaded to ${file.path}')),
-    );
+    final header = 'Experiment ID,Layout Type,Replications,Treatments,Observations,Trait1,Trait2,Trait3\n';
+    final bytes = Uint8List.fromList(utf8.encode(header));
+
+    try {
+      final String? path = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save Experiment Template',
+        fileName: 'experiment_template.csv',
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        bytes: bytes,
+      );
+
+      if (path != null) {
+        final file = File(path.endsWith('.csv') ? path : '$path.csv');
+        await file.writeAsBytes(bytes);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Template saved at: ${file.path}')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Template save cancelled')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save template: $e')),
+      );
+    }
   }
 
+  // ----------------- Upload CSV -----------------
   Future<void> _uploadCSV() async {
     final typeGroup = XTypeGroup(label: 'CSV', extensions: ['csv']);
     final XFile? file = await openFile(acceptedTypeGroups: [typeGroup]);
-
     if (file == null) return;
 
     final content = await file.readAsString();
@@ -151,7 +172,7 @@ class _ExperimentScreenState extends State<ExperimentScreen> {
     _loadExperiments();
   }
 
-
+  // ----------------- Export CSV -----------------
   Future<void> _exportCSV() async {
     if (_savedExperiments.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -160,7 +181,6 @@ class _ExperimentScreenState extends State<ExperimentScreen> {
       return;
     }
 
-    // Generate CSV content
     final buffer = StringBuffer();
     buffer.writeln('Experiment ID,Layout Type,Replications,Treatments,Observations,Traits');
 
@@ -176,75 +196,34 @@ class _ExperimentScreenState extends State<ExperimentScreen> {
       ].join(','));
     }
 
-    try {
+    final bytes = Uint8List.fromList(utf8.encode(buffer.toString()));
 
-      // Convert string to bytes
-      final bytes = Uint8List.fromList(buffer.toString().codeUnits);
-      // Let user choose save location
-      String? outputPath = await FilePicker.platform.saveFile(
+    try {
+      final String? path = await FilePicker.platform.saveFile(
         dialogTitle: 'Save Experiments CSV',
         fileName: 'saved_experiments_${DateTime.now().millisecondsSinceEpoch}.csv',
         type: FileType.custom,
         allowedExtensions: ['csv'],
-        bytes: bytes, // Add the bytes parameter
+        bytes: bytes,
       );
 
-
-      if (outputPath != null) {
-        final File file = File(outputPath);
-        await file.writeAsString(buffer.toString());
-
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Experiments exported successfully to: $outputPath')),
-          );
-        }
-      } else {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Export cancelled')),
-          );
-        }
-      }
-    } catch (e) {
-      if (context.mounted) {
+      if (path != null) {
+        final file = File(path.endsWith('.csv') ? path : '$path.csv');
+        await file.writeAsBytes(bytes);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error exporting file: $e')),
+          SnackBar(content: Text('Experiments exported successfully: ${file.path}')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Export cancelled')),
         );
       }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to export CSV: $e')),
+      );
     }
   }
-
-  Future<void> _exportCSVxxx() async {
-    if (_savedExperiments.isEmpty) return;
-
-    final buffer = StringBuffer();
-    buffer.writeln('Experiment ID,Layout Type,Replications,Treatments,Observations,Traits');
-
-    for (final exp in _savedExperiments) {
-      final traits = (exp['traits'] as List).join(';');
-      buffer.writeln([
-        exp['experiment_id'],
-        exp['layout_type'],
-        exp['replications'],
-        exp['treatments'],
-        exp['observations'],
-        traits,
-      ].join(','));
-    }
-
-    final dir = Directory('/storage/emulated/0/Download');
-    final file = File('${dir.path}/saved_experiments.csv');
-    await file.writeAsString(buffer.toString());
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Experiments exported as CSV in ${file.path}')),
-    );
-  }
-
-
-
-
 
   @override
   Widget build(BuildContext context) {

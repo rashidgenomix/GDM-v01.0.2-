@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
 class DatabaseScreen extends StatefulWidget {
@@ -41,6 +43,14 @@ class _DatabaseScreenState extends State<DatabaseScreen> {
     _loadData();
   }
 
+  @override
+  void dispose() {
+    for (var c in _controllers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
   CollectionReference<Map<String, dynamic>> get userCollection =>
       FirebaseFirestore.instance
           .collection('users')
@@ -57,7 +67,7 @@ class _DatabaseScreenState extends State<DatabaseScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      print("Error loading data: $e");
+      debugPrint("Error loading data: $e");
       setState(() => _isLoading = false);
     }
   }
@@ -91,19 +101,39 @@ class _DatabaseScreenState extends State<DatabaseScreen> {
     }
   }
 
+  // ===========================
+  // ✅ CHANGE START: Upload CSV
+  // Uses file_selector to open file, validates headers and imports rows
+  // ===========================
   Future<void> _uploadCSV() async {
     final typeGroup = XTypeGroup(label: 'CSV', extensions: ['csv']);
     final XFile? file = await openFile(acceptedTypeGroups: [typeGroup]);
 
-    if (file != null) {
-      final content = await file.readAsString();
+    if (file == null) return;
 
-      print("content");
-      print(content);
+    try {
+      final content = await file.readAsString();
       final lines = const LineSplitter().convert(content);
+      if (lines.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('CSV file is empty')),
+        );
+        return;
+      }
 
       final headers = lines.first.split(',').map((h) => h.trim()).toList();
 
+      // Validate headers against template fields
+      final missing = _fields.where((f) => !headers.contains(f)).toList();
+      if (missing.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Invalid CSV: Missing headers ${missing.join(", ")}')),
+        );
+        return;
+      }
+
+      // Parse and upload rows (non-destructive)
+      int added = 0;
       for (int i = 1; i < lines.length; i++) {
         final values = lines[i].split(',');
         if (values.length != headers.length) continue;
@@ -119,30 +149,92 @@ class _DatabaseScreenState extends State<DatabaseScreen> {
 
         if (existing.docs.isEmpty) {
           await userCollection.add(data);
+          added++;
         }
       }
 
-      _loadData();
+      await _loadData();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('CSV imported successfully. Added $added rows.')),
+      );
+    } catch (e) {
+      debugPrint('Upload CSV failed: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to upload CSV: $e')),
+      );
     }
   }
+  // ===========================
+  // ✅ CHANGE END Upload CSV
+  // ===========================
 
+  // ===========================
+  // ✅ CHANGE START: Save logic (uses FilePicker save dialog)
+  // Replaces previous getExternalStorageDirectory() behaviour
+  // ===========================
   Future<void> _saveCSV(String fileName, String content) async {
-    final directory = await getExternalStorageDirectory();
-    final file = File('${directory!.path}/$fileName');
-    await file.writeAsString(content);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Saved to: ${file.path}')),
-    );
-  }
+    try {
+      final Uint8List bytes = Uint8List.fromList(utf8.encode(content));
 
+      // Ask user where to save the file
+      final String? outputPath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Save $fileName',
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        bytes: bytes,
+      );
+
+      if (outputPath == null) {
+        // User cancelled
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Save cancelled')),
+        );
+        return;
+      }
+
+      // Some implementations of saveFile already write bytes; writing again is safe.
+      final path = outputPath.endsWith('.csv') ? outputPath : '$outputPath.csv';
+      final out = File(path);
+      await out.writeAsBytes(bytes, flush: true);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('File saved: $path')),
+      );
+    } catch (e) {
+      debugPrint('Save CSV error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save file: $e')),
+      );
+    }
+  }
+  // ===========================
+  // ✅ CHANGE END Save logic
+  // ===========================
+
+  // ===========================
+  // ✅ CHANGE START: Download template using _saveCSV
+  // ===========================
   Future<void> _downloadTemplate() async {
     const headers =
         "Crop,Accession Number,Name,Genus,Species,Origin,Donor Institute,Collection Date\n";
     await _saveCSV("germplasm_template.csv", headers);
   }
+  // ===========================
+  // ✅ CHANGE END: Download template
+  // ===========================
 
+  // ===========================
+  // ✅ CHANGE START: Export entries using _saveCSV
+  // ===========================
   Future<void> _exportCSV() async {
-    if (_entries.isEmpty) return;
+    if (_entries.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No entries to export')),
+      );
+      return;
+    }
 
     final headers = _fields.join(',') + '\n';
     final rows = _entries.map((e) {
@@ -155,23 +247,19 @@ class _DatabaseScreenState extends State<DatabaseScreen> {
     final csv = headers + rows;
     await _saveCSV("germplasm_entries.csv", csv);
   }
+  // ===========================
+  // ✅ CHANGE END: Export entries
+  // ===========================
 
   Future<void> _deleteEntry(String docId) async {
-    print("Attempting to delete document with ID: $docId");
+    debugPrint("Attempting to delete document with ID: $docId");
 
     try {
       await userCollection.doc(docId).delete();
-
-
-      print("✅ Document deleted successfully.");
-
-      // Reload data after deletion
+      debugPrint("✅ Document deleted successfully.");
       await _loadData();
     } catch (e) {
-      print("❌ Failed to delete document: $e");
-
-      // Optionally show a message to the user
-      // e.g. using a snackbar or dialog in your app
+      debugPrint("❌ Failed to delete document: $e");
     }
   }
 
