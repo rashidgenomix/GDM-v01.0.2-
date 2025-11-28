@@ -29,15 +29,19 @@ android {
         jvmTarget = "17"
     }
 
-    defaultConfig {
-        applicationId = "com.plantsciencetools.germplasmx"
-        minSdk = flutter.minSdkVersion
-        targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
-    }
+def flutterVersionCode = project.properties["flutter.versionCode"]?.toInteger() ?: 1
+def flutterVersionName = project.properties["flutter.versionName"] ?: "1.0"
 
-    signingConfigs {
+defaultConfig {
+    applicationId = "com.plantsciencetools.germplasmx"
+    minSdk = flutter.minSdkVersion
+    targetSdk = 35
+
+    versionCode = flutterVersionCode
+    versionName = flutterVersionName
+}
+
+signingConfigs {
         create("release") {
             if (System.getenv("CI") == "true") {
                 // Use Codemagic environment variables
