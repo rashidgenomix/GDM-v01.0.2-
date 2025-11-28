@@ -14,8 +14,7 @@ plugins {
 
 // Read version from pubspec.yaml
 fun getFlutterVersion(): Pair<Int, String> {
-    // FIX: Use project.rootDir.parentFile to correctly point one level up
-    // from the 'android' directory to the Flutter project root.
+    // Correctly point one level up from the 'android' directory to the Flutter project root.
     val flutterProjectRoot = project.rootDir.parentFile
     val pubspec = File(flutterProjectRoot, "pubspec.yaml")
 
@@ -59,10 +58,11 @@ android {
         jvmTarget = "17"
     }
 
-    // Apply the custom version data in the defaultConfig block
+    // Apply Multidex and custom version data
     defaultConfig {
         versionCode = pubspecVersionCode
         versionName = pubspecVersionName
+        multiDexEnabled = true // <-- FIX: Enables Multidex to support desugaring
     }
 
     signingConfigs {
@@ -91,7 +91,6 @@ android {
             isShrinkResources = false
         }
         getByName("debug") {
-            // Optional: sign debug builds with the same key
             signingConfig = signingConfigs.getByName("release")
         }
     }
@@ -103,6 +102,7 @@ android {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    implementation("androidx.multidex:multidex:2.0.1") // <-- FIX: Multidex dependency
 }
 
 flutter {
