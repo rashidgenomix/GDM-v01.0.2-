@@ -30,6 +30,7 @@ android {
     }
 
 
+val (pubspecVersionCode, pubspecVersionName) = getFlutterVersion()
 
 // Read version from pubspec.yaml
 fun getFlutterVersion(): Pair<Int, String> {
@@ -43,7 +44,7 @@ fun getFlutterVersion(): Pair<Int, String> {
     return Pair(versionCode, versionName)
 }
 
-val (pubspecVersionCode, pubspecVersionName) = getFlutterVersion()
+
 
 
 signingConfigs {
