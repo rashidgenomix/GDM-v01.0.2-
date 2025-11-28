@@ -1,3 +1,4 @@
+import java.io.File
 import java.util.Properties
 import java.io.FileInputStream
 
@@ -7,12 +8,40 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// =================================================================
+// 1. HELPER FUNCTIONS & PROPERTIES
+// Functions and variables must be defined at the top level before being used.
+// =================================================================
+
+// Read version from pubspec.yaml
+fun getFlutterVersion(): Pair<Int, String> {
+    // The path should point to the root of the Flutter project, which is usually two levels up
+    val pubspec = File("${project.rootDir}/pubspec.yaml")
+    
+    // Fallback to a default if the file/line isn't found
+    val versionLine = pubspec.readLines().firstOrNull { it.startsWith("version:") }
+    val version = versionLine?.split("version:")?.get(1)?.trim() ?: "1.0.0+1"
+
+    val versionName = version.split("+")[0]
+    // Get the build number (the versionCode) from after the '+'
+    val versionCode = version.split("+").getOrNull(1)?.toIntOrNull() ?: 1
+
+    return Pair(versionCode, versionName)
+}
+
+// Call the function once to get the version data
+val (pubspecVersionCode, pubspecVersionName) = getFlutterVersion()
+
 // Load keystore properties (for local builds)
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("android/key.properties")
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
+
+// =================================================================
+// 2. ANDROID CONFIGURATION BLOCK
+// =================================================================
 
 android {
     namespace = "com.plantsciencetools.germplasmx"
@@ -29,26 +58,15 @@ android {
         jvmTarget = "17"
     }
 
+    // Apply the custom version data in the defaultConfig block
+    defaultConfig {
+        versionCode = pubspecVersionCode
+        versionName = pubspecVersionName
+    }
 
-val (pubspecVersionCode, pubspecVersionName) = getFlutterVersion()
-
-// Read version from pubspec.yaml
-fun getFlutterVersion(): Pair<Int, String> {
-    val pubspec = File("${project.rootDir}/pubspec.yaml")
-    val versionLine = pubspec.readLines().firstOrNull { it.startsWith("version:") }
-    val version = versionLine?.split("version:")?.get(1)?.trim() ?: "1.0.0+1"
-
-    val versionName = version.split("+")[0]
-    val versionCode = version.split("+").getOrNull(1)?.toIntOrNull() ?: 1
-
-    return Pair(versionCode, versionName)
-}
-
-
-
-
-signingConfigs {
+    signingConfigs {
         create("release") {
+            // Logic for Codemagic (CI) vs. Local signing
             if (System.getenv("CI") == "true") {
                 // Use Codemagic environment variables
                 storeFile = System.getenv("CM_KEYSTORE_PATH")?.let { file(it) }
@@ -77,6 +95,10 @@ signingConfigs {
         }
     }
 }
+
+// =================================================================
+// 3. DEPENDENCIES & FLUTTER CONFIG
+// =================================================================
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
