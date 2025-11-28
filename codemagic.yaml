@@ -1,6 +1,6 @@
 workflows:
   android-release:
-    name: Android Release Build (APK + AAB)
+    name: Android Release Build (AAB)
     max_build_duration: 60
     environment:
       flutter: stable
@@ -12,16 +12,34 @@ workflows:
         script: |
           flutter pub get
 
-      - name: Build Android APK
+      - name: Increment version code
         script: |
-          flutter build apk --release
+          #!/bin/bash
+          echo "Incrementing version code..."
+          PUBSPEC_FILE="pubspec.yaml"
+          VERSION_LINE=$(grep '^version:' $PUBSPEC_FILE)
+          
+          # Extract current version and code
+          VERSION_NAME=$(echo $VERSION_LINE | cut -d'+' -f1 | awk '{print $2}')
+          VERSION_CODE=$(echo $VERSION_LINE | cut -d'+' -f2)
+          
+          # Increment version code
+          NEW_VERSION_CODE=$((VERSION_CODE + 1))
+          
+          # Update pubspec.yaml
+          sed -i.bak "s/^version: .*/version: ${VERSION_NAME}+${NEW_VERSION_CODE}/" $PUBSPEC_FILE
+          
+          echo "Updated version: ${VERSION_NAME}+${NEW_VERSION_CODE}"
+
+      - name: Clean previous build
+        script: |
+          flutter clean
 
       - name: Build Android App Bundle
         script: |
           flutter build appbundle --release
 
     artifacts:
-      - build/app/outputs/flutter-apk/app-release.apk
       - build/app/outputs/bundle/release/app-release.aab
 
     publishing:
