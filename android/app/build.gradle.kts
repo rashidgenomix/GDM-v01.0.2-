@@ -10,15 +10,16 @@ plugins {
 
 // =================================================================
 // 1. HELPER FUNCTIONS & PROPERTIES
-// Functions and variables must be defined at the top level before being used.
 // =================================================================
 
 // Read version from pubspec.yaml
 fun getFlutterVersion(): Pair<Int, String> {
-    // The path should point to the root of the Flutter project, which is usually two levels up
-    val pubspec = File("${project.rootDir}/pubspec.yaml")
-    
-    // Fallback to a default if the file/line isn't found
+    // FIX: Use project.rootDir.parentFile to correctly point one level up
+    // from the 'android' directory to the Flutter project root.
+    val flutterProjectRoot = project.rootDir.parentFile
+    val pubspec = File(flutterProjectRoot, "pubspec.yaml")
+
+    // Safely read the file lines
     val versionLine = pubspec.readLines().firstOrNull { it.startsWith("version:") }
     val version = versionLine?.split("version:")?.get(1)?.trim() ?: "1.0.0+1"
 
